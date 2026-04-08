@@ -3,6 +3,7 @@ from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from drf_spectacular.utils import extend_schema,  OpenApiParameter
 
 from base.models import Todo
 from base.serializers import TodoSerializer
@@ -21,6 +22,11 @@ def todo_page(request):
     return render(request, 'base/todo_page.html')
 
 class TodoListCreateView(APIView):
+    serializer_class = TodoSerializer
+    @extend_schema(
+            request=TodoSerializer,
+            methods=['POST', 'GET'],
+    )
     def get(self, request):
         todos = Todo.objects.all()
         serializer = TodoSerializer(todos, many=True)
@@ -34,6 +40,28 @@ class TodoListCreateView(APIView):
             return Response(data=serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TodoListFilteredView(APIView):
+    serializer_class = TodoSerializer
+    @extend_schema(
+            request=TodoSerializer,
+            methods=['GET'],
+            parameters=[
+                OpenApiParameter(name='is_completed', description='Filter todos by completion status (True or False)', required=False, type=str)
+            ]
+                )
+    def get(self, request):
+        is_completed = request.query_params.get('is_completed')
+        if is_completed is None:
+            todos = Todo.objects.all()
+            serializer = TodoSerializer(todos, many=True)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+        else:
+            is_completed.lower()
+            todos = Todo.objects.filter(is_completed=is_completed)
+            serializer = TodoSerializer(todos, many=True)
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+
 
 class TodoDetailView(APIView):
     def get(self, request,pk):
